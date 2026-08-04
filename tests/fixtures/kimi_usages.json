@@ -1,0 +1,34 @@
+{
+  "user": {
+    "userId": "xxx",
+    "region": "REGION_CN",
+    "membership": { "level": "LEVEL_INTERMEDIATE" }
+  },
+  "usage": {
+    "limit": "100",
+    "used": "32",
+    "remaining": "68",
+    "resetTime": "2026-08-01T13:00:44.129456Z"
+  },
+  "limits": [
+    {
+      "window": { "duration": 300, "timeUnit": "TIME_UNIT_MINUTE" },
+      "detail": {
+        "limit": "100",
+        "used": "32",
+        "remaining": "68",
+        "resetTime": "2026-07-29T10:00:44.129456Z"
+      }
+    },
+    {
+      "window": { "duration": 7, "timeUnit": "TIME_UNIT_DAY" },
+      "detail": {
+        "limit": "1000",
+        "used": "123.456",
+        "remaining": "876.544",
+        "resetTime": "2026-08-05T00:00:00Z"
+      }
+    }
+  ],
+  "authentication": { "method": "METHOD_API_KEY", "scope": "FEATURE_CODING" }
+}

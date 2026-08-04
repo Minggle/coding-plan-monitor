@@ -1,0 +1,10 @@
+{
+  "Result": {
+    "QuotaUsage": [
+      { "Level": "session", "Percent": 45, "ResetTimestamp": 1753800000 },
+      { "Level": "weekly", "Percent": 20, "ResetTimestamp": 1754200000 },
+      { "Level": "monthly", "Percent": 8, "ResetTimestamp": 1756600000 }
+    ]
+  },
+  "ResponseMetadata": { "Error": null }
+}

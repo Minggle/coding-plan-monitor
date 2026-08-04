@@ -1,0 +1,26 @@
+{
+  "level": "pro",
+  "limits": [
+    {
+      "type": "TOKENS_LIMIT",
+      "unit": 3,
+      "number": 5,
+      "percentage": 40.5,
+      "nextResetTime": 1753800000000
+    },
+    {
+      "type": "TOKENS_LIMIT",
+      "unit": 6,
+      "number": 1,
+      "percentage": 12.0,
+      "nextResetTime": 1754200000000
+    },
+    {
+      "type": "TIME_LIMIT",
+      "percentage": 12.3,
+      "currentValue": 123,
+      "usage": 1000,
+      "usageDetails": [{ "modelCode": "web_search", "usage": 100 }]
+    }
+  ]
+}

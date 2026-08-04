@@ -1,0 +1,7 @@
+{
+  "data": {
+    "five_hour": { "percent": 33.3, "reset": 1753800000 },
+    "week": { "percent": 55 },
+    "month": { "percent": 10.5, "used": 105, "limit": 1000 }
+  }
+}
