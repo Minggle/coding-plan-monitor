@@ -54,11 +54,12 @@ class AppController(QObject):
 
         self.tray = TrayController()
         self.panel = UsagePanel()
+        self.panel.set_columns(self.config.settings.panel_columns)
         self.strip = StripWidget()
 
         self._wire_signals()
         self._seed_from_cache()
-        self._apply_mode()
+        self._show_strip()
         self._reload_accounts()
 
     # ---- 信号装配 ----
@@ -67,7 +68,6 @@ class AppController(QObject):
         t = self.tray
         t.showPanelRequested.connect(self.show_panel)
         t.refreshAllRequested.connect(self.scheduler.refresh_all)
-        t.modeSwitchRequested.connect(self._switch_mode)
         t.settingsRequested.connect(self.open_settings)
         t.quitRequested.connect(self.app.quit)
 
@@ -80,7 +80,6 @@ class AppController(QObject):
         s.refreshAllRequested.connect(self.scheduler.refresh_all)
         s.showPanelRequested.connect(self.show_panel)
         s.settingsRequested.connect(self.open_settings)
-        s.modeSwitchRequested.connect(self._switch_mode)
         s.quitRequested.connect(self.app.quit)
         s.moved.connect(self._on_strip_moved)
         s.lockChanged.connect(self._on_strip_locked)
@@ -132,34 +131,31 @@ class AppController(QObject):
         pos = QCursor.pos()
         screen = QGuiApplication.screenAt(pos) or QGuiApplication.primaryScreen()
         geo = screen.availableGeometry()
-        self.panel.adjustSize()
-        x = min(pos.x(), geo.right() - self.panel.width())
+        # 高度上限跟随屏幕可用区域（而不是固定 640），内容少时自动收紧
+        self.panel.setMaximumHeight(geo.height() - 16)
+        self.panel._fit_to_content()
+        # 宽度超出屏幕可用区域时压回屏幕内（内部出现横向滚动条兜底）
+        if self.panel.width() > geo.width() - 16:
+            self.panel.resize(geo.width() - 16, self.panel.height())
+        x = max(geo.left(), min(pos.x(), geo.right() - self.panel.width()))
         y = geo.bottom() - self.panel.height() - 8
         self.panel.move(x, max(geo.top(), y))
         self.panel.show()
         self.panel.raise_()
         self.panel.activateWindow()
 
-    def _switch_mode(self, mode: str) -> None:
-        self.config.settings.display_mode = mode
-        save_config(self.config)
-        self._apply_mode()
-
-    def _apply_mode(self) -> None:
-        mode = self.config.settings.display_mode
-        if mode == "strip":
-            st = self.config.settings
-            if st.strip_x is not None and st.strip_y is not None:
-                self.strip.move(st.strip_x, st.strip_y)
-            else:
-                # 默认放主屏任务栏上方右侧
-                geo = QGuiApplication.primaryScreen().availableGeometry()
-                self.strip.adjustSize()
-                self.strip.move(geo.right() - self.strip.width() - 200, geo.bottom() - self.strip.height() - 4)
-            self.strip.set_locked(st.strip_locked)
-            self.strip.show()
+    def _show_strip(self) -> None:
+        """悬浮窄条常驻：恢复持久化的位置与锁定状态。"""
+        st = self.config.settings
+        if st.strip_x is not None and st.strip_y is not None:
+            self.strip.move(st.strip_x, st.strip_y)
         else:
-            self.strip.hide()
+            # 默认放主屏任务栏上方右侧
+            geo = QGuiApplication.primaryScreen().availableGeometry()
+            self.strip.adjustSize()
+            self.strip.move(geo.right() - self.strip.width() - 200, geo.bottom() - self.strip.height() - 4)
+        self.strip.set_locked(st.strip_locked)
+        self.strip.show()
 
     def _on_strip_moved(self, x: int, y: int) -> None:
         self.config.settings.strip_x = x
@@ -183,8 +179,9 @@ class AppController(QObject):
     def _on_config_saved(self) -> None:
         save_config(self.config)
         set_autostart(self.config.settings.autostart)
+        self.panel.set_columns(self.config.settings.panel_columns)
         self._reload_accounts()
-        self._apply_mode()
+        self._show_strip()
         self.scheduler.force_refresh()
 
     def run(self) -> None:

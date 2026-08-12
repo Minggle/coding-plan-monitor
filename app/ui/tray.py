@@ -14,7 +14,6 @@ from app.ui.rings import make_app_icon
 class TrayController(QObject):
     showPanelRequested = Signal()
     refreshAllRequested = Signal()
-    modeSwitchRequested = Signal(str)     # "tray" | "strip"
     settingsRequested = Signal()
     quitRequested = Signal()
 
@@ -58,9 +57,9 @@ class TrayController(QObject):
             lines = [f"{r.account_name}（{label}）"]
             if r.has_data:
                 for wt in WindowType:
-                    w = r.snapshot.window(wt)
-                    if w is not None and w.percent is not None:
-                        lines.append(f"  {WINDOW_LABELS[wt]}: {w.percent:.0f}%")
+                    pct = r.snapshot.display_percent(wt)
+                    if pct is not None:
+                        lines.append(f"  {WINDOW_LABELS[wt]}: {pct:.0f}%")
             if r.error_kind is not None:
                 lines.append(f"  ⚠ {r.error_msg}")
             blocks.append("\n".join(lines))

@@ -23,6 +23,8 @@ def load_fixture():
 
 def test_kimi_parse():
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/chat/completions"):
+            return httpx.Response(200, json={"id": "probe", "choices": []})
         assert request.url == API_URL
         assert request.headers["Authorization"] == "Bearer sk-test"
         return httpx.Response(200, json=load_fixture())
@@ -142,3 +144,77 @@ def test_kimi_duration_as_string():
     acc = Account(provider="kimi", key="sk-test")
     snap = KimiProvider().fetch(acc, make_client(handler))
     assert snap.window(WindowType.FIVE_HOUR).percent == pytest.approx(10.0)
+# ---------- 月度配额探测（usages 接口不暴露月度池，靠推理 403 判定） ----------
+
+QUOTA_403 = {
+    "error": {
+        "message": "You've reached your usage limit for this billing cycle. "
+                   "Your quota will be refreshed in the next cycle.",
+        "type": "access_terminated_error",
+    }
+}
+
+
+def _route(handler_usages, chat_response):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/chat/completions"):
+            return chat_response
+        return handler_usages(request)
+    return handler
+
+
+def test_kimi_monthly_exhausted_probe():
+    """5h/周窗口未满 + 推理 403 billing cycle → 月度窗口 100%。"""
+    handler = _route(lambda r: httpx.Response(200, json=load_fixture()),
+                     httpx.Response(403, json=QUOTA_403))
+    acc = Account(provider="kimi", key="sk-test")
+    snap = KimiProvider().fetch(acc, make_client(handler))
+    m = snap.window(WindowType.MONTHLY)
+    assert m is not None
+    assert m.percent == 100.0
+    assert m.reset_at is None
+
+
+def test_kimi_monthly_healthy_probe_no_window():
+    """探测请求成功（200）→ 月度未耗尽，不出现月度窗口。"""
+    handler = _route(lambda r: httpx.Response(200, json=load_fixture()),
+                     httpx.Response(200, json={"id": "ok", "choices": []}))
+    acc = Account(provider="kimi", key="sk-test")
+    snap = KimiProvider().fetch(acc, make_client(handler))
+    assert snap.window(WindowType.MONTHLY) is None
+
+
+def test_kimi_probe_skipped_when_window_near_full():
+    """5h/周窗口 >=95% 时锁定可由窗口解释，不消耗探测请求。"""
+    data = load_fixture()
+    for item in data["limits"]:
+        item["detail"]["used"] = "96"
+        item["detail"]["remaining"] = "4"
+    data["usage"]["used"] = "96"
+    data["usage"]["remaining"] = "4"
+    paths = []
+
+    def handler(request):
+        paths.append(request.url.path)
+        return httpx.Response(200, json=data)
+
+    acc = Account(provider="kimi", key="sk-test")
+    KimiProvider().fetch(acc, make_client(handler))
+    assert not any(p.endswith("/chat/completions") for p in paths)
+
+
+def test_kimi_probe_throttled():
+    """同一账号 6 小时内只探测一次；耗尽结论在后续查询中沿用。"""
+    chat_calls = []
+
+    def handler(request):
+        if request.url.path.endswith("/chat/completions"):
+            chat_calls.append(1)
+            return httpx.Response(403, json=QUOTA_403)
+        return httpx.Response(200, json=load_fixture())
+
+    acc = Account(provider="kimi", key="sk-test")
+    for _ in range(3):
+        snap = KimiProvider().fetch(acc, make_client(handler))
+        assert snap.window(WindowType.MONTHLY).percent == 100.0
+    assert len(chat_calls) == 1

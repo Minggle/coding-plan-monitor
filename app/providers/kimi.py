@@ -6,6 +6,8 @@ limits[] 中 window=300MINUTE 为 5 小时窗口，7DAY 为每周窗口；顶层
 
 from __future__ import annotations
 
+import time
+
 import httpx
 
 from app.core.config import Account
@@ -21,6 +23,12 @@ from app.providers.base import (
 
 API_URL = "https://api.kimi.com/coding/v1/usages"
 FALLBACK_URL = "https://api.kimi.com/coding/v1/usage"
+CHAT_URL = "https://api.kimi.com/coding/v1/chat/completions"
+
+# 月度探测：每账号每 6 小时最多一次（探测会真实消耗 1 次请求额度）
+MONTHLY_PROBE_INTERVAL_SEC = 6 * 3600
+# account_id → (探测时间, 是否月度耗尽)
+_probe_cache: dict[str, tuple[float, bool]] = {}
 
 
 def _detail_to_window(wtype: WindowType, detail: dict) -> UsageWindow:
@@ -87,7 +95,45 @@ class KimiProvider(Provider):
         windows = [w for w in (five_hour, seven_day) if w is not None]
         if not windows:
             raise ProviderError(ErrorKind.PARSE, "响应中未找到用量窗口数据")
+        if self._probe_monthly_exhausted(account, client, windows):
+            windows.append(UsageWindow(window_type=WindowType.MONTHLY, percent=100.0))
         return self.snapshot(account, windows)
+
+    def _probe_monthly_exhausted(self, account: Account, client: httpx.Client,
+                                 windows: list[UsageWindow]) -> bool:
+        """月度配额耗尽探测。
+
+        usages 接口完全不暴露月度池；月度耗尽时推理请求返回
+        403 "usage limit for this billing cycle"。但 5h/周窗口耗尽可能报同样的错，
+        因此仅当 5h 和周窗口都远未满（<95%，留竞态余量）时才发探测——
+        只有这种情况下的 403 才能判定为月度耗尽。
+        探测会消耗 1 次请求额度，结论（含"健康"）缓存 6 小时。
+        """
+        cached = _probe_cache.get(account.id)
+        fresh = cached and time.time() - cached[0] < MONTHLY_PROBE_INTERVAL_SEC
+        present = [w for w in windows if w.percent is not None]
+        if fresh or not present or any(w.percent >= 95.0 for w in present):
+            return cached[1] if cached else False
+        try:
+            resp = client.post(
+                CHAT_URL,
+                headers={"Authorization": f"Bearer {account.key}"},
+                json={"model": "kimi-for-coding",
+                      "messages": [{"role": "user", "content": "."}],
+                      "max_tokens": 1},
+            )
+        except httpx.HTTPError:
+            return cached[1] if cached else False
+        text = resp.text
+        if resp.status_code == 403 and (("usage limit" in text and "billing cycle" in text)
+                                        or "access_terminated_error" in text):
+            verdict = True
+        elif resp.status_code < 500:
+            verdict = False
+        else:
+            return cached[1] if cached else False  # 5xx 不确定，沿用缓存
+        _probe_cache[account.id] = (time.time(), verdict)
+        return verdict
 
 
 def _window_minutes(duration: float | None, unit: str) -> float | None:

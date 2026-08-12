@@ -166,3 +166,115 @@ def test_strip_center_shows_remaining_minutes(qapp):
     result.snapshot.windows[0].reset_at = None
     ring.set_result(result)
     assert ring._center == "--"
+def test_settings_volcano_ak_roundtrip(qapp):
+    """火山账号编辑：AK/SK 与套餐类型正确回填并保存。"""
+    from app.core.config import Account
+    from app.ui.settings import AccountEditDialog
+    acc = Account(provider="volcano", name="火山", access_key_id="AK1",
+                  secret_access_key="SK1", plan_type="agent")
+    dlg = AccountEditDialog(acc)
+    assert dlg._vol_ak.text() == "AK1"
+    assert dlg._vol_sk.text() == "SK1"
+    assert dlg._vol_plan.currentData() == "agent"
+    dlg._vol_plan.setCurrentIndex(dlg._vol_plan.findData("auto"))
+    dlg.accept()
+    out = dlg.account
+    assert out.access_key_id == "AK1"
+    assert out.secret_access_key == "SK1"
+    assert out.plan_type == "auto"
+def test_panel_columns_fit_content(qapp):
+    """回归：多列布局下面板宽度必须容纳卡片内容，否则右列被裁切、底部出现横向滚动条。
+
+    复现：2 列 × 4 账号，卡片内容宽约 500px（重置时间文本决定），
+    旧实现固定 300px/列 → 窗口 640px < 内容 1016px。
+    """
+    from app.ui.panel import UsagePanel
+    panel = UsagePanel()
+    panel.set_columns(2)
+    results = {f"a{i}": make_result(ok=True) for i in range(4)}
+    for i, r in enumerate(results.values()):
+        r.account_id = f"a{i}"
+    panel.update_results(results)
+    panel.show()
+    qapp.processEvents()
+    needed = panel._container.sizeHint().width()
+    assert panel.width() >= needed, f"面板宽 {panel.width()} < 内容宽 {needed}"
+    panel.hide()
+def test_panel_height_grows_with_rows(qapp):
+    """回归：面板高度必须随行数增长，直到屏幕高度上限。
+
+    旧实现 adjustSize 拿到的 sizeHint 不含滚动区内容高度：2 行 3 行都只有 334px，
+    3 行账号被强制滚动。离屏屏幕 800px，3 行内容 ~594px 应完整放下。
+    """
+    from app.ui.panel import UsagePanel
+    panel = UsagePanel()
+    panel.set_columns(2)
+    results = {f"a{i}": make_result(ok=True) for i in range(6)}
+    for i, r in enumerate(results.values()):
+        r.account_id = f"a{i}"
+    panel.update_results(results)
+    panel.show()
+    qapp.processEvents()
+    need_h = panel._container.sizeHint().height()
+    got_h = panel._scroll.viewport().height()
+    panel.hide()
+    assert got_h >= need_h, f"视口高 {got_h} < 内容高 {need_h}（3 行被滚动裁切）"
+
+
+def test_panel_height_respects_cap(qapp):
+    """高度上限仍生效：内容超高时压到上限以内，由垂直滚动条兜底。"""
+    from app.ui.panel import UsagePanel
+    panel = UsagePanel()
+    panel.set_columns(1)
+    panel.setMaximumHeight(400)
+    results = {f"a{i}": make_result(ok=True) for i in range(6)}
+    for i, r in enumerate(results.values()):
+        r.account_id = f"a{i}"
+    panel.update_results(results)
+    panel.show()
+    qapp.processEvents()
+    h = panel.height()
+    panel.hide()
+    assert h <= 400, f"面板高 {h} 超过上限 400"
+def _exhausted_result():
+    """月度耗尽的账号快照（Kimi 场景：5h/7d 窗口远未满）。"""
+    snap = UsageSnapshot("kimi", "wq", [
+        UsageWindow(WindowType.FIVE_HOUR, 3.0, reset_at=9999999999.0),
+        UsageWindow(WindowType.SEVEN_DAY, 35.0, reset_at=9999999999.0),
+        UsageWindow(WindowType.MONTHLY, 100.0),
+    ])
+    return AccountResult(account_id="a1", provider="kimi", account_name="wq", snapshot=snap)
+
+
+def test_snapshot_display_percent_monthly_exhausted(qapp):
+    """全局规则：月度耗尽 ⇒ 5h/7d 展示百分比强制 100（真实值保留在窗口数据里）。"""
+    snap = _exhausted_result().snapshot
+    assert snap.monthly_exhausted
+    assert snap.display_percent(WindowType.FIVE_HOUR) == 100.0
+    assert snap.display_percent(WindowType.SEVEN_DAY) == 100.0
+    assert snap.display_percent(WindowType.MONTHLY) == 100.0
+    # 未耗尽时透传
+    snap2 = make_result(ok=True).snapshot
+    assert not snap2.monthly_exhausted
+    assert snap2.display_percent(WindowType.FIVE_HOUR) == 45.0
+
+
+def test_panel_rings_forced_red_on_monthly_exhausted(qapp):
+    """详情面板：月度耗尽时 5h/7d 环显示 100%（红）。"""
+    from app.ui.panel import UsagePanel
+    panel = UsagePanel()
+    panel.update_results({"a1": _exhausted_result()})
+    card = panel._cards["a1"]
+    assert card._rings[WindowType.FIVE_HOUR]._canvas._percent == 100.0
+    assert card._rings[WindowType.SEVEN_DAY]._canvas._percent == 100.0
+    assert card._rings[WindowType.MONTHLY]._canvas._percent == 100.0
+
+
+def test_strip_rings_forced_red_on_monthly_exhausted(qapp):
+    """悬浮窄条：月度耗尽时双环同样强制 100%。"""
+    from app.ui.strip import MiniRing
+    ring = MiniRing()
+    ring.set_result(_exhausted_result())
+    assert ring._outer == 100.0
+    assert ring._inner == 100.0
+    assert "月度: 100%" in ring.toolTip()

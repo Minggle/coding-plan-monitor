@@ -1,4 +1,4 @@
-"""设置对话框：账号管理（增删改/启用）、轮询间隔、显示形态、开机自启。"""
+"""设置对话框：账号管理（增删改/启用）、轮询间隔、面板列数、开机自启。"""
 
 from __future__ import annotations
 
@@ -85,16 +85,39 @@ class AccountEditDialog(QDialog):
         # 火山
         vol_page = QWidget()
         vol_form = QFormLayout(vol_page)
-        hint = QLabel("从火山引擎控制台 Coding Plan 页面按 F12 → 网络 → 复制 GetCodingPlanUsage 请求为 curl，粘贴到下面：")
+        is_vol = self.account.provider == "volcano"
+        hint = QLabel("推荐：火山引擎控制台 → IAM 访问控制 → 密钥管理 创建 AccessKey"
+                      "（子账号需 ArkReadOnlyAccess 权限），Coding Plan / Agent Plan 都支持：")
         hint.setWordWrap(True)
         vol_form.addRow(hint)
+        self._vol_ak = QLineEdit(self.account.access_key_id if is_vol else "")
+        self._vol_ak.setPlaceholderText("AccessKey ID（AKLT...）")
+        vol_form.addRow("AccessKey ID", self._vol_ak)
+        self._vol_sk = QLineEdit(self.account.secret_access_key if is_vol else "")
+        self._vol_sk.setEchoMode(QLineEdit.EchoMode.Password)
+        self._vol_sk.setPlaceholderText("Secret Access Key")
+        vol_form.addRow("Secret Key", self._vol_sk)
+        self._vol_plan = QComboBox()
+        self._vol_plan.addItem("自动检测", "auto")
+        self._vol_plan.addItem("Coding Plan", "coding")
+        self._vol_plan.addItem("Agent Plan", "agent")
+        if is_vol:
+            i = self._vol_plan.findData(self.account.plan_type or "auto")
+            if i >= 0:
+                self._vol_plan.setCurrentIndex(i)
+        vol_form.addRow("套餐类型", self._vol_plan)
+        alt_hint = QLabel("备选（Cookie 会过期）：控制台对应套餐页面 F12 → 网络 → "
+                          "复制用量请求（GetCodingPlanUsage / GetAgentPlanAFPUsage）为 curl 粘贴：")
+        alt_hint.setWordWrap(True)
+        alt_hint.setStyleSheet("color: #888;")
+        vol_form.addRow(alt_hint)
         self._vol_curl = QPlainTextEdit()
         self._vol_curl.setPlaceholderText("curl 'https://console.volcengine.com/...' -H 'cookie: ...' ...")
-        self._vol_curl.setMaximumHeight(110)
-        if self.account.provider == "volcano" and self.account.cookie:
+        self._vol_curl.setMaximumHeight(80)
+        if is_vol and self.account.cookie:
             self._vol_curl.setPlainText(f"（已保存 Cookie，{len(self.account.cookie)} 字符；重新粘贴可更新）")
         vol_form.addRow("curl 命令", self._vol_curl)
-        self._vol_project = QLineEdit(self.account.project_name or "default")
+        self._vol_project = QLineEdit((self.account.project_name or "default") if is_vol else "default")
         vol_form.addRow("项目名", self._vol_project)
         self._stack.addWidget(vol_page)
 
@@ -146,6 +169,9 @@ class AccountEditDialog(QDialog):
             acc.key = self._glm_key.text().strip()
             acc.site = self._glm_site.currentData()
         elif pid == "volcano":
+            acc.access_key_id = self._vol_ak.text().strip()
+            acc.secret_access_key = self._vol_sk.text().strip()
+            acc.plan_type = self._vol_plan.currentData()
             acc.project_name = self._vol_project.text().strip() or "default"
             curl_text = self._vol_curl.toPlainText().strip()
             if curl_text and not curl_text.startswith("（已保存"):
@@ -217,13 +243,10 @@ class SettingsDialog(QDialog):
         self._interval.setValue(config.settings.poll_interval_sec)
         form.addRow("轮询间隔", self._interval)
 
-        self._mode = QComboBox()
-        self._mode.addItem("托盘圆圈", "tray")
-        self._mode.addItem("悬浮窄条", "strip")
-        i = self._mode.findData(config.settings.display_mode)
-        if i >= 0:
-            self._mode.setCurrentIndex(i)
-        form.addRow("显示形态", self._mode)
+        self._panel_columns = QSpinBox()
+        self._panel_columns.setRange(1, 4)
+        self._panel_columns.setValue(config.settings.panel_columns)
+        form.addRow("详情面板列数", self._panel_columns)
 
         self._autostart = QCheckBox("开机自启动")
         self._autostart.setChecked(config.settings.autostart)
@@ -280,7 +303,7 @@ class SettingsDialog(QDialog):
             if acc:
                 acc.enabled = item.checkState() == Qt.CheckState.Checked
         self.config.settings.poll_interval_sec = self._interval.value()
-        self.config.settings.display_mode = self._mode.currentData()
+        self.config.settings.panel_columns = self._panel_columns.value()
         self.config.settings.autostart = self._autostart.isChecked()
         self.configSaved.emit()
         self.accept()

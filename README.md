@@ -8,9 +8,9 @@
 ## 功能一览
 
 - **三家供应商 + 自定义**
-  - **Kimi**：`GET api.kimi.com/coding/v1/usages`（Bearer Key），兼容 `TIME_UNIT_MINUTE` 枚举、`used` 缺失时由 `limit - remaining` 推算
+  - **Kimi**：`GET api.kimi.com/coding/v1/usages`（Bearer Key），兼容 `TIME_UNIT_MINUTE` 枚举、`used` 缺失时由 `limit - remaining` 推算；月度池接口不可见，内置**月度耗尽探测**（见「已知限制」）
   - **GLM（智谱）**：`GET {site}/api/monitor/usage/quota/limit`（裸 Key 无 Bearer），支持国内站 `open.bigmodel.cn` / 国际站 `api.z.ai`
-  - **火山引擎**：控制台 Cookie 接口 `GetCodingPlanUsage`（无官方开放 API），粘贴 curl 自动提取 Cookie / x-csrf-token / x-web-id
+  - **火山引擎**：支持 **Coding Plan** 与 **Agent Plan** 两种套餐——官方 OpenAPI（AK/SK + V4 签名），`GetAFPUsage` / `GetCodingPlanUsage` 自动检测；也兼容控制台 Cookie 粘贴 curl（Agent 侧为 `GetAgentPlanAFPUsage`），自动提取 Cookie / x-csrf-token / x-web-id
   - **自定义**：URL + 请求头模板（`{KEY}` 占位）+ 三个窗口的 JSON 路径映射，可接入任意类似接口
 - **多账号**：每家可添加多个 Key，可单独启用/禁用
 - **三个窗口用量**：5 小时、7 天、月度（百分比 + 重置时间；不支持的窗口显示 N/A）
@@ -37,7 +37,7 @@ python -m venv .venv
 |---|---|
 | Kimi | Coding Plan 的 API Key（`sk-...`） |
 | GLM | bigmodel.cn / z.ai 控制台的 API Key + 选择对应站点 |
-| 火山引擎 | 控制台 Coding Plan 页面 F12 → 网络 → 复制 `GetCodingPlanUsage` 请求为 curl，整段粘贴（自动提取凭证） |
+| 火山引擎 | 推荐：IAM 密钥管理创建 AccessKey（子账号需 `ArkReadOnlyAccess`），套餐类型默认「自动检测」；或控制台对应套餐页面 F12 复制用量请求为 curl 整段粘贴 |
 | 自定义 | URL、请求头模板（`{KEY}` 占位）、三个窗口的 JSON 路径（如 `data.five_hour`） |
 
 勾选「开机自启动」保存后，下次开机自动后台运行。
@@ -54,7 +54,7 @@ python -m venv .venv
 
 | 文件 | 内容 |
 |---|---|
-| `config.json` | 账号（Key/Cookie）、轮询间隔、显示形态、窄条位置与锁定、开机自启 |
+| `config.json` | 账号（Key/Cookie/AK）、轮询间隔、面板列数、窄条位置与锁定、开机自启 |
 | `cache.json` | 各账号最近一次成功快照（失败降级/冷启动用） |
 | `logs\*.json` | 每次查询的原始 API 响应（不含凭证，供诊断） |
 
@@ -91,5 +91,6 @@ run.bat                  # 手动启动
 ## 已知限制
 
 - Windows 11 任务栏「小组件」位置不开放给第三方，悬浮窄条是最接近"嵌入任务栏"的形态
-- 火山引擎 Cookie 会过期（托盘出现警告角标 + 面板提示后，重新粘贴 curl 即可）
+- 火山引擎 Cookie 方式会过期（托盘出现警告角标 + 面板提示后，重新粘贴 curl 即可）；AccessKey 方式不过期，推荐使用
 - GLM 接口只返回百分比，不返回绝对 token 数；Kimi 套餐为次数制（limit 100 一类），7 天窗口用顶层 `usage` 汇总兜底
+- Kimi **月度配额**在任何查询接口都不可见：仅当 5h/周窗口都远未满（<95%）时，每 6 小时发一次 `max_tokens=1` 的推理探测（会消耗 1 次请求额度）——返回 403「usage limit for this billing cycle」判定为月度耗尽，月度环显示 100%「已耗尽」，恢复后下次探测自动解除

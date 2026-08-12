@@ -54,6 +54,21 @@ class UsageSnapshot:
         vals = [w.percent for w in self.windows if w.percent is not None]
         return max(vals) if vals else 0.0
 
+    @property
+    def monthly_exhausted(self) -> bool:
+        """月度配额耗尽 = 账号整体被锁（此时 5h/7d 窗口的剩余额度是不可用的假信号）。"""
+        m = self.window(WindowType.MONTHLY)
+        return m is not None and m.percent is not None and m.percent >= 100
+
+    def display_percent(self, wtype: WindowType) -> float | None:
+        """展示用百分比：月度耗尽时 5h/7d 强制 100（窗口真实数据不改动）。"""
+        w = self.window(wtype)
+        if w is None or w.percent is None:
+            return None
+        if wtype != WindowType.MONTHLY and self.monthly_exhausted:
+            return 100.0
+        return w.percent
+
 
 class ErrorKind(str, Enum):
     NETWORK = "network"        # 网络/超时

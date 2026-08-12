@@ -12,6 +12,9 @@ def test_roundtrip(tmp_path):
             Account(
                 provider="volcano",
                 name="火山",
+                access_key_id="AK1",
+                secret_access_key="SK1",
+                plan_type="agent",
                 cookie="sessionid=abc; csrfToken=tok123",
                 csrf_token="tok123",
                 web_id="wid",
@@ -27,7 +30,7 @@ def test_roundtrip(tmp_path):
                 ),
             ),
         ],
-        settings=Settings(poll_interval_sec=120, display_mode="strip"),
+        settings=Settings(poll_interval_sec=120),
     )
     path = save_config(cfg, str(tmp_path))
     assert os.path.exists(path)
@@ -37,9 +40,11 @@ def test_roundtrip(tmp_path):
     assert loaded.accounts[0].provider == "kimi"
     assert loaded.accounts[1].site == "api.z.ai"
     assert loaded.accounts[2].csrf_token == "tok123"
+    assert loaded.accounts[2].access_key_id == "AK1"
+    assert loaded.accounts[2].secret_access_key == "SK1"
+    assert loaded.accounts[2].plan_type == "agent"
     assert loaded.accounts[3].custom.paths["monthly"] == "data.month"
     assert loaded.settings.poll_interval_sec == 120
-    assert loaded.settings.display_mode == "strip"
     # id 保留
     assert loaded.accounts[0].id == cfg.accounts[0].id
 

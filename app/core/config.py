@@ -42,7 +42,12 @@ class Account:
     key: str = ""
     # glm 站点：open.bigmodel.cn | api.z.ai
     site: str = "open.bigmodel.cn"
-    # volcano 控制台凭证
+    # volcano 官方 OpenAPI 凭证（Coding Plan / Agent Plan 通用）
+    access_key_id: str = ""
+    secret_access_key: str = ""
+    # volcano 套餐类型：auto（自动检测）| coding | agent
+    plan_type: str = "auto"
+    # volcano 控制台凭证（兼容路径，仅 Coding Plan）
     cookie: str = ""
     csrf_token: str = ""
     web_id: str = ""
@@ -58,12 +63,12 @@ class Account:
 @dataclass
 class Settings:
     poll_interval_sec: int = DEFAULT_POLL_INTERVAL_SEC
-    display_mode: str = "tray"          # tray | strip
     tray_account_id: str = "auto"       # auto = 最接近限额的账号
     strip_x: int | None = None
     strip_y: int | None = None
     strip_locked: bool = False
     autostart: bool = False
+    panel_columns: int = 2            # 详情面板卡片列数（1~4）
 
 
 @dataclass

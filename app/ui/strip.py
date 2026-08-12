@@ -48,17 +48,18 @@ class MiniRing(QWidget):
             snap = result.snapshot
             w5 = snap.window(WindowType.FIVE_HOUR)
             w7 = snap.window(WindowType.SEVEN_DAY)
-            self._outer = w5.percent if w5 is not None else None
-            self._inner = w7.percent if w7 is not None else None
+            # 月度耗尽时双环强制 100%（账号整体被锁）
+            self._outer = snap.display_percent(WindowType.FIVE_HOUR)
+            self._inner = snap.display_percent(WindowType.SEVEN_DAY)
             # 中心数字：5h 窗口距离重置的剩余分钟数
             self._reset_at = w5.reset_at if w5 is not None else None
             remain_min = _remaining_minutes(self._reset_at) if self._reset_at else None
             self._center = str(remain_min) if remain_min is not None else "--"
             lines = [result.account_name, "外环=5小时 内环=7天 中心=5h剩余分钟"]
             for wt in WindowType:
-                ww = snap.window(wt)
-                if ww is not None and ww.percent is not None:
-                    lines.append(f"{WINDOW_LABELS[wt]}: {ww.percent:.0f}%")
+                pct = snap.display_percent(wt)
+                if pct is not None:
+                    lines.append(f"{WINDOW_LABELS[wt]}: {pct:.0f}%")
             if result.error_kind is not None:
                 lines.append(f"⚠ {result.error_msg}")
             self.setToolTip("\n".join(lines))
@@ -103,7 +104,6 @@ class StripWidget(QWidget):
     refreshAllRequested = Signal()
     showPanelRequested = Signal()
     settingsRequested = Signal()
-    modeSwitchRequested = Signal(str)
     quitRequested = Signal()
     lockChanged = Signal(bool)
     moved = Signal(int, int)  # 新位置，供配置持久化

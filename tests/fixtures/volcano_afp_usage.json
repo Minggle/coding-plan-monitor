@@ -1,0 +1,23 @@
+{
+  "Result": {
+    "PlanType": "AFP",
+    "AFPFiveHour": {
+      "Quota": "100",
+      "Used": "30",
+      "ResetTime": 1753800000
+    },
+    "AFPWeekly": {
+      "Quota": "200",
+      "Used": "100",
+      "ResetTime": 1754200000
+    },
+    "AFPMonthly": {
+      "Quota": "0",
+      "Used": "0",
+      "ResetTime": null
+    }
+  },
+  "ResponseMetadata": {
+    "Error": null
+  }
+}
