@@ -278,3 +278,34 @@ def test_strip_rings_forced_red_on_monthly_exhausted(qapp):
     assert ring._outer == 100.0
     assert ring._inner == 100.0
     assert "月度: 100%" in ring.toolTip()
+def test_ring_reset_label_aligned_with_canvas(qapp):
+    """回归：重置文案必须与环同列居中（旧实现是整行拼接，"月度"会跑到"7 天"环下）。"""
+    from app.ui.panel import UsagePanel
+    panel = UsagePanel()
+    panel.update_results({"a1": make_result(ok=True)})
+    panel.show()
+    qapp.processEvents()
+    card = panel._cards["a1"]
+    for wt, rv in card._rings.items():
+        canvas_cx = rv._canvas.geometry().center().x()
+        reset_cx = rv._reset_label.geometry().center().x()
+        assert abs(canvas_cx - reset_cx) <= 1, f"{wt}: 重置文案中心 {reset_cx} != 环中心 {canvas_cx}"
+    # 缺失窗口（月度）标签为空
+    assert card._rings[WindowType.MONTHLY]._reset_label.text() == ""
+    # 存在的窗口有文案且不含窗口名前缀（列标题已说明）
+    t5 = card._rings[WindowType.FIVE_HOUR]._reset_label.text()
+    assert t5 and not t5.startswith("5 小时")
+    panel.hide()
+
+
+def test_card_error_line(qapp):
+    """错误消息独占一行：失败时可见，成功时隐藏。"""
+    from app.ui.panel import UsagePanel
+    panel = UsagePanel()
+    panel.update_results({"a1": make_result(ok=False)})   # 无数据 + AUTH 错误
+    card = panel._cards["a1"]
+    assert not card._error.isHidden()
+    assert card._error.text() == "网络错误"
+    panel.update_results({"a1": make_result(ok=True)})
+    assert card._error.isHidden()
+    panel.hide()

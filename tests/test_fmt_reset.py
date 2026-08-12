@@ -40,7 +40,7 @@ def test_window_reset_exhausted():
     from app.ui.panel import fmt_window_reset
     from app.core.models import UsageWindow, WindowType
     w = UsageWindow(WindowType.MONTHLY, percent=100.0, reset_at=None)
-    assert "已耗尽" in fmt_window_reset(w)
+    assert fmt_window_reset(w) == "已耗尽"  # 列内精简文案
     # 100% 但有重置时间 → 正常显示重置时间（如 5h 窗口打满）
     w2 = UsageWindow(WindowType.FIVE_HOUR, percent=100.0, reset_at=time.time() + 1800)
     assert "已耗尽" not in fmt_window_reset(w2)

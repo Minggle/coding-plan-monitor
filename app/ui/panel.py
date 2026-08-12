@@ -50,7 +50,7 @@ def fmt_reset(reset_at: float | None) -> str:
 def fmt_window_reset(w: UsageWindow) -> str:
     """单个窗口的重置文案；用量 100% 且无重置时间 = 本计费周期已耗尽。"""
     if w.percent is not None and w.percent >= 100 and not w.reset_at:
-        return "已耗尽（下个计费周期恢复）"
+        return "已耗尽"
     return fmt_reset(w.reset_at)
 
 
@@ -64,13 +64,13 @@ def fmt_ago(ts: float) -> str:
 
 
 class RingView(QWidget):
-    """单个进度环：环形 + 中心百分比 + 下方标题。"""
+    """单个进度环：环形 + 中心百分比 + 窗口名 + 重置时间，三段同列居中。"""
 
     def __init__(self, title: str, parent: QWidget | None = None):
         super().__init__(parent)
         self._percent: float | None = None
         self._center = "--"
-        self.setMinimumSize(84, 108)
+        self.setMinimumSize(84, 124)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(2)
@@ -78,14 +78,19 @@ class RingView(QWidget):
         self._label = QLabel(title)
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._label.setStyleSheet("color: #aaa; font-size: 12px;")
+        self._reset_label = QLabel("")
+        self._reset_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._reset_label.setStyleSheet("color: #999; font-size: 11px;")
         layout.addWidget(self._canvas, 1)
         layout.addWidget(self._label)
+        layout.addWidget(self._reset_label)
 
     def set_window(self, w: UsageWindow | None) -> None:
         if w is None or w.percent is None:
             self._canvas.set_data(None, "N/A")
         else:
             self._canvas.set_data(w.percent, f"{w.percent:.0f}%")
+        self._reset_label.setText("" if w is None else fmt_window_reset(w))
 
 
 class _RingCanvas(QWidget):
@@ -146,9 +151,11 @@ class AccountCard(QFrame):
             rings.addWidget(rv)
         root.addLayout(rings)
 
-        self._reset = QLabel("")
-        self._reset.setStyleSheet("color: #999; font-size: 12px;")
-        root.addWidget(self._reset)
+        self._error = QLabel("")
+        self._error.setStyleSheet("color: #f44336; font-size: 12px;")
+        self._error.setWordWrap(True)
+        self._error.setVisible(False)
+        root.addWidget(self._error)
 
     def set_result(self, result: AccountResult) -> None:
         self._account_id = result.account_id
@@ -163,24 +170,21 @@ class AccountCard(QFrame):
                     # 月度耗尽 = 账号整体被锁，5h/7d 环强制标红 100%（仅展示层覆盖）
                     w = replace(w, percent=snap.display_percent(wt))
                 self._rings[wt].set_window(w)
-            resets = "　".join(
-                f"{WINDOW_LABELS[wt]}: {fmt_window_reset(snap.window(wt) or UsageWindow(wt))}"
-                for wt in WINDOW_ORDER
-                if snap.window(wt) is not None
-            )
-            self._reset.setText(resets)
             if result.error_kind is not None:
                 # 有旧数据但最新一次刷新失败
                 self._status.setText(f"刷新失败（显示 {fmt_ago(result.snapshot.fetched_at)} 数据）")
                 self._status.setStyleSheet("color: #ff9800; font-size: 12px;")
-                self._reset.setText(result.error_msg + ("　" + resets if resets else ""))
+                self._error.setText(result.error_msg)
+                self._error.setVisible(bool(result.error_msg))
             else:
                 self._status.setText(f"更新于 {fmt_ago(result.updated_at)}")
                 self._status.setStyleSheet("color: #999; font-size: 12px;")
+                self._error.setVisible(False)
         else:
             for rv in self._rings.values():
                 rv.set_window(None)
-            self._reset.setText(result.error_msg)
+            self._error.setText(result.error_msg)
+            self._error.setVisible(bool(result.error_msg))
             self._status.setText("查询失败")
             self._status.setStyleSheet("color: #f44336; font-size: 12px;")
 
