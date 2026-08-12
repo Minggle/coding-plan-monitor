@@ -172,6 +172,12 @@ class StripWidget(QWidget):
                 self._rings[account_id] = ring
                 self._layout.addWidget(ring)
             ring.set_result(result)
+        # 双环顺序跟随配置中的账号顺序（设置里可调整）
+        if list(self._rings) != list(results):
+            for aid in results:
+                self._layout.removeWidget(self._rings[aid])
+                self._layout.addWidget(self._rings[aid])
+            self._rings = {aid: self._rings[aid] for aid in results}
         self.adjustSize()
 
     # ---- 拖拽 ----

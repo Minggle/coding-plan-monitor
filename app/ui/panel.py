@@ -271,6 +271,10 @@ class UsagePanel(QWidget):
                 self._cards[account_id] = card
                 structure_changed = True
             card.set_result(result)
+        # 卡片顺序跟随配置中的账号顺序（设置里可调整）
+        if list(self._cards) != list(results):
+            self._cards = {aid: self._cards[aid] for aid in results}
+            structure_changed = True
         if structure_changed:
             self._layout_cards()
         self._update_min_width()

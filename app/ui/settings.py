@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -224,10 +225,14 @@ class SettingsDialog(QDialog):
         gl = QVBoxLayout(group)
         self._list = QListWidget()
         self._list.itemDoubleClicked.connect(lambda _: self._edit_account())
+        # 支持拖拽排序（与上移/下移按钮等价，保存时写回配置）
+        self._list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         gl.addWidget(self._list)
         btns = QHBoxLayout()
         for text, fn in (("添加", self._add_account), ("编辑", self._edit_account),
-                         ("删除", self._remove_account)):
+                         ("删除", self._remove_account),
+                         ("上移", lambda: self._move_account(-1)),
+                         ("下移", lambda: self._move_account(1))):
             b = QPushButton(text)
             b.clicked.connect(fn)
             btns.addWidget(b)
@@ -270,8 +275,25 @@ class SettingsDialog(QDialog):
             item.setCheckState(Qt.CheckState.Checked if acc.enabled else Qt.CheckState.Unchecked)
             self._list.addItem(item)
 
-    def _selected_index(self) -> int:
-        return self._list.currentRow()
+    def _selected_account_id(self) -> str | None:
+        item = self._list.currentItem()
+        return item.data(Qt.ItemDataRole.UserRole) if item else None
+
+    def _account_index(self, account_id: str | None) -> int:
+        for i, a in enumerate(self.config.accounts):
+            if a.id == account_id:
+                return i
+        return -1
+
+    def _move_account(self, delta: int) -> None:
+        """上移/下移选中账号（只改列表顺序，保存时写回配置；面板/窄条跟随配置顺序）。"""
+        row = self._list.currentRow()
+        new_row = row + delta
+        if row < 0 or not (0 <= new_row < self._list.count()):
+            return
+        item = self._list.takeItem(row)
+        self._list.insertItem(new_row, item)
+        self._list.setCurrentRow(new_row)
 
     def _add_account(self) -> None:
         dlg = AccountEditDialog(parent=self)
@@ -280,8 +302,8 @@ class SettingsDialog(QDialog):
             self._reload_list()
 
     def _edit_account(self) -> None:
-        i = self._selected_index()
-        if i < 0 or i >= len(self.config.accounts):
+        i = self._account_index(self._selected_account_id())
+        if i < 0:
             return
         dlg = AccountEditDialog(self.config.accounts[i], parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
@@ -289,19 +311,23 @@ class SettingsDialog(QDialog):
             self._reload_list()
 
     def _remove_account(self) -> None:
-        i = self._selected_index()
-        if 0 <= i < len(self.config.accounts):
+        i = self._account_index(self._selected_account_id())
+        if i >= 0:
             self.config.accounts.pop(i)
             self._reload_list()
 
     def _save(self) -> None:
-        # 勾选状态 → enabled
+        # 勾选状态 → enabled；列表视觉顺序 → 配置账号顺序
+        listed = []
         for row in range(self._list.count()):
             item = self._list.item(row)
-            account_id = item.data(Qt.ItemDataRole.UserRole)
-            acc = self.config.account_by_id(account_id)
+            acc = self.config.account_by_id(item.data(Qt.ItemDataRole.UserRole))
             if acc:
                 acc.enabled = item.checkState() == Qt.CheckState.Checked
+                listed.append(acc)
+        listed_ids = {a.id for a in listed}
+        # 兜底：未列入的账号保持原相对顺序追加
+        self.config.accounts = listed + [a for a in self.config.accounts if a.id not in listed_ids]
         self.config.settings.poll_interval_sec = self._interval.value()
         self.config.settings.panel_columns = self._panel_columns.value()
         self.config.settings.autostart = self._autostart.isChecked()

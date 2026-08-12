@@ -309,3 +309,60 @@ def test_card_error_line(qapp):
     panel.update_results({"a1": make_result(ok=True)})
     assert card._error.isHidden()
     panel.hide()
+def _named_results(names):
+    out = {}
+    for n in names:
+        snap = UsageSnapshot("kimi", n, [UsageWindow(WindowType.FIVE_HOUR, 10.0, reset_at=9999999999.0)])
+        out[n] = AccountResult(account_id=n, provider="kimi", account_name=n, snapshot=snap)
+    return out
+
+
+def test_settings_reorder_accounts(qapp):
+    """设置里上移/下移账号，保存后 config.accounts 顺序跟随列表。"""
+    from app.core.config import Account, Config
+    from app.ui.settings import SettingsDialog
+    cfg = Config(accounts=[Account(provider="kimi", name="A", key="1"),
+                           Account(provider="kimi", name="B", key="2"),
+                           Account(provider="kimi", name="C", key="3")])
+    dlg = SettingsDialog(cfg)
+    dlg._list.setCurrentRow(0)
+    dlg._move_account(1)   # A 下移
+    assert [cfg.accounts[i].name for i in range(3)] == ["A", "B", "C"]  # 未保存不动配置
+    dlg._save()
+    assert [a.name for a in cfg.accounts] == ["B", "A", "C"]
+
+
+def test_settings_move_boundary_noop(qapp):
+    from app.core.config import Account, Config
+    from app.ui.settings import SettingsDialog
+    cfg = Config(accounts=[Account(provider="kimi", name="A"), Account(provider="kimi", name="B")])
+    dlg = SettingsDialog(cfg)
+    dlg._list.setCurrentRow(0)
+    dlg._move_account(-1)  # 顶部再上移 = 无操作
+    items = [dlg._list.item(i).text() for i in range(dlg._list.count())]
+    assert items[0].endswith("A  ·  Kimi")
+    dlg.close()
+
+
+def test_panel_follows_results_order(qapp):
+    """详情面板卡片顺序跟随传入结果（= 配置账号顺序）的变化。"""
+    from app.ui.panel import UsagePanel
+    panel = UsagePanel()
+    res = _named_results(["a", "b", "c"])
+    panel.update_results(res)
+    panel.update_results({k: res[k] for k in ("c", "a", "b")})
+    first = panel._cards_layout.itemAt(0).widget()
+    assert first is panel._cards["c"]
+    panel.hide()
+
+
+def test_strip_follows_results_order(qapp):
+    """窄条双环顺序同样跟随。"""
+    from app.ui.strip import StripWidget
+    strip = StripWidget()
+    res = _named_results(["a", "b", "c"])
+    strip.update_results(res)
+    strip.update_results({k: res[k] for k in ("c", "a", "b")})
+    lay = strip._layout
+    assert lay.indexOf(strip._rings["c"]) < lay.indexOf(strip._rings["a"]) < lay.indexOf(strip._rings["b"])
+    strip.hide()

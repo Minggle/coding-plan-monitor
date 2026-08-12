@@ -12,7 +12,7 @@
   - **GLM（智谱）**：`GET {site}/api/monitor/usage/quota/limit`（裸 Key 无 Bearer），支持国内站 `open.bigmodel.cn` / 国际站 `api.z.ai`
   - **火山引擎**：支持 **Coding Plan** 与 **Agent Plan** 两种套餐——官方 OpenAPI（AK/SK + V4 签名），`GetAFPUsage` / `GetCodingPlanUsage` 自动检测；也兼容控制台 Cookie 粘贴 curl（Agent 侧为 `GetAgentPlanAFPUsage`），自动提取 Cookie / x-csrf-token / x-web-id
   - **自定义**：URL + 请求头模板（`{KEY}` 占位）+ 三个窗口的 JSON 路径映射，可接入任意类似接口
-- **多账号**：每家可添加多个 Key，可单独启用/禁用
+- **多账号**：每家可添加多个 Key，可单独启用/禁用；设置里可拖拽或按钮**调整顺序**，窄条双环与详情面板同步跟随
 - **三个窗口用量**：5 小时、7 天、月度（百分比 + 重置时间；不支持的窗口显示 N/A）
 - **自动刷新**：默认每 5 分钟轮询（可配 60s+），托盘/面板/窄条均可手动刷新；QThreadPool 并发查询不卡 UI
 - **悬浮窄条**：无边框置顶小长条，每账号一个**双环**（**外环 = 5 小时，内环 = 7 天**，中心数字为 5h 窗口剩余分钟数，每 30 秒自减），可拖拽、可锁定位置（位置与锁定状态均持久化）
