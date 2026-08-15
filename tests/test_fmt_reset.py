@@ -12,7 +12,8 @@ def test_unknown_and_expired():
 
 
 def test_minutes_within_an_hour():
-    assert fmt_reset(time.time() + 32 * 60) == "31 分钟后重置"
+    # 减 1 秒避开计时器粒度边界（Windows 低精度时钟下同 tick 会得到 1920.0）
+    assert fmt_reset(time.time() + 32 * 60 - 1) == "31 分钟后重置"
 
 
 def test_same_day_shows_plain_time():

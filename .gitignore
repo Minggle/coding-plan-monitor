@@ -19,3 +19,15 @@ htmlcov/
 # 系统
 Thumbs.db
 desktop.ini
+
+# 构建产物
+build/
+dist/
+installer/
+*.spec.bak
+
+# 打包专用环境（Codex 沙箱内）
+.build-venv/
+.pytest-tmp/
+.verify-install*.log
+.python-base/

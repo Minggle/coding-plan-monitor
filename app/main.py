@@ -33,6 +33,10 @@ def set_autostart(enabled: bool) -> None:
     if not enabled:
         reg.remove(APP_NAME)
         return
+    if getattr(sys, "frozen", False):
+        # ???? exe?????????
+        reg.setValue(APP_NAME, f'"{sys.executable}"')
+        return
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     launcher = os.path.join(project_root, "launch.pyw")
     pythonw = sys.executable.replace("python.exe", "pythonw.exe")
@@ -192,6 +196,13 @@ class AppController(QObject):
 def main() -> int:
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
+    if getattr(sys, "frozen", False):
+        # ???????????????????????????
+        from PySide6.QtGui import QIcon
+        base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(sys.executable)))
+        icon_path = os.path.join(base, "app.png")
+        if os.path.exists(icon_path):
+            app.setWindowIcon(QIcon(icon_path))
     app.setApplicationName(APP_NAME)
     app.setApplicationDisplayName("Coding Plan 用量监控")
     controller = AppController(app)

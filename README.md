@@ -3,7 +3,7 @@
 一个 Windows 桌面小组件，定时查询各家 Coding Plan（编程套餐）的用量配额：
 **Kimi、智谱 GLM、火山引擎**，并支持自定义供应商、多账号。
 
-![Python](https://img.shields.io/badge/Python-3.11+-blue) ![PySide6](https://img.shields.io/badge/UI-PySide6-green) ![Tests](https://img.shields.io/badge/tests-37%20passed-brightgreen)
+![Python](https://img.shields.io/badge/Python-3.11+-blue) ![PySide6](https://img.shields.io/badge/UI-PySide6-green) ![Tests](https://img.shields.io/badge/tests-80%20passed-brightgreen)
 
 ## 功能一览
 
@@ -20,15 +20,23 @@
 - **详情面板**：每账号一张卡片，5h / 7 天 / 月度三个进度环 + 重置倒计时；可拖拽移动、失焦自动隐藏、✕ 关闭
 - **失败降级**：查询失败保留上次成功数据并标注"刷新失败"；快照持久化，重启即有数据
 - **诊断日志**：每次查询的原始 API 响应（不含凭证）写入 `%APPDATA%\coding-plan-monitor\logs\`
-- **开机自启**：注册表 Run 键 + `launch.pyw` 无窗口启动，不依赖工作目录
+- **开机自启**：注册表 Run 键；安装版直接注册 exe 自身，开发版注册 `launch.pyw` 无窗口启动，均不依赖工作目录
 
-## 快速开始
+## 下载安装（普通用户）
+
+从 [Releases](https://github.com/Minggle/coding-plan-monitor/releases) 下载最新安装包
+`CodingPlanMonitor-Setup-x.y.z.exe`，双击安装：
+
+- 免 UAC（安装到用户目录），安装完成默认在**桌面生成快捷方式**，并可选择开机自启
+- 安装后即可从开始菜单 / 桌面启动，无需 Python 环境
+
+## 快速开始（开发者）
 
 ```bash
 cd coding-plan-monitor
 python -m venv .venv
 .venv/Scripts/pip install PySide6 httpx
-.venv/Scripts/python -m app.main     # 或双击 run.bat
+.venv/Scripts/python -m app.main
 ```
 
 启动后：右键窄条（或托盘图标）→ **设置** → 添加账号：
@@ -77,9 +85,21 @@ app/
     ├── strip.py         # 悬浮窄条（双环 + 拖拽/锁定 + 定时置顶）
     ├── panel.py         # 详情面板（账号卡片 × 三窗口环）
     └── settings.py      # 设置对话框（账号管理/间隔/形态/自启）
-tests/                   # 37 个测试：解析器（真实响应 fixtures）/ 配置 / 缓存 / UI 离屏
-launch.pyw               # 开机自启启动器
-run.bat                  # 手动启动
+tests/                   # 80 个测试：解析器（真实响应 fixtures）/ 配置 / 缓存 / UI 离屏
+launch.pyw               # 开发模式启动器（开机自启用）
+assets/icon.ico, icon.png  # 应用与安装包图标
+scripts/make_icon.py     # 重新生成图标
+packaging/               # PyInstaller spec、exe 版本信息、Inno Setup 安装包脚本
+```
+
+## 打包与发布
+
+```bash
+# 1. 打包 exe（onedir，无控制台窗口）
+pyinstaller packaging\CodingPlanMonitor.spec --noconfirm
+
+# 2. 构建安装包（输出到 installer/）
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\installer.iss
 ```
 
 ## 测试
