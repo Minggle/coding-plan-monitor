@@ -1,5 +1,5 @@
-﻿# ???????????? GitHub Release????? gh auth login?
-# ???powershell -ExecutionPolicy Bypass -File packaging\publish.ps1 -Tag v0.2.0
+# 一键发布：推送代码并创建 GitHub Release（需先完成 gh auth login）
+# 用法：powershell -ExecutionPolicy Bypass -File packaging\publish.ps1 -Tag v0.2.0
 param(
     [Parameter(Mandatory = $true)]
     [string]$Tag,
@@ -24,4 +24,4 @@ if ((Test-Path $Setup) -and (Test-Path $Notes)) {
 } else {
     gh release create $Tag --title $Tag --generate-notes
 }
-Write-Output "?????$Tag"
+Write-Output "发布完成：$Tag"

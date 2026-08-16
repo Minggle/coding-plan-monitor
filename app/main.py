@@ -34,7 +34,7 @@ def set_autostart(enabled: bool) -> None:
         reg.remove(APP_NAME)
         return
     if getattr(sys, "frozen", False):
-        # ???? exe?????????
+        # 打包后的 exe：直接注册自身路径
         reg.setValue(APP_NAME, f'"{sys.executable}"')
         return
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -197,7 +197,7 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     if getattr(sys, "frozen", False):
-        # ???????????????????????????
+        # 打包后加载随包图标（开发模式下托盘等使用代码绘制图标）
         from PySide6.QtGui import QIcon
         base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(sys.executable)))
         icon_path = os.path.join(base, "app.png")
