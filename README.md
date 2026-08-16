@@ -3,7 +3,7 @@
 一个 Windows 桌面小组件，定时查询各家 Coding Plan（编程套餐）的用量配额：
 **Kimi、智谱 GLM、火山引擎**，并支持自定义供应商、多账号。
 
-![Python](https://img.shields.io/badge/Python-3.11+-blue) ![PySide6](https://img.shields.io/badge/UI-PySide6-green) ![Tests](https://img.shields.io/badge/tests-80%20passed-brightgreen)
+![Python](https://img.shields.io/badge/Python-3.11+-blue) ![PySide6](https://img.shields.io/badge/UI-PySide6-green) ![Tests](https://img.shields.io/badge/tests-80%20passed-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ## 功能一览
 
@@ -114,3 +114,11 @@ pyinstaller packaging\CodingPlanMonitor.spec --noconfirm
 - 火山引擎 Cookie 方式会过期（托盘出现警告角标 + 面板提示后，重新粘贴 curl 即可）；AccessKey 方式不过期，推荐使用
 - GLM 接口只返回百分比，不返回绝对 token 数；Kimi 套餐为次数制（limit 100 一类），7 天窗口用顶层 `usage` 汇总兜底
 - Kimi **月度配额**在任何查询接口都不可见：仅当 5h/周窗口都远未满（<95%）时，每 6 小时发一次 `max_tokens=1` 的推理探测（会消耗 1 次请求额度）——返回 403「usage limit for this billing cycle」判定为月度耗尽，月度环显示 100%「已耗尽」，恢复后下次探测自动解除
+
+## 致谢
+
+本项目的全部代码由 AI（[OpenAI Codex](https://openai.com/codex/)）编写完成——包括功能实现、测试、打包与发布流程；人类负责需求、验收与决策。感谢 AI 让个人开发者也能快速拥有趁手的小工具。
+
+## 开源协议
+
+本项目基于 [MIT License](LICENSE) 开源，可自由使用、修改与分发。
